@@ -2,7 +2,7 @@
 
 Python library for generating and submitting invoice records to the Spanish tax authority (AEAT) using the VERI*FACTU system.
 
-This is a Python port of [Verifactu-PHP](https://github.com/tonibagur/Verifactu-PHP), maintaining file-by-file and model-by-model correspondence for easy maintenance and synchronization.
+This is a Python port of [Verifactu-PHP](https://github.com/josemmo/Verifactu-PHP), maintaining file-by-file and model-by-model correspondence for easy maintenance and synchronization.
 
 > **Note**: The package name on PyPI is `pyverifactu`, but the Python module name is `verifactu` (i.e., you install with `pip install pyverifactu` but import as `from verifactu import ...`).
 
