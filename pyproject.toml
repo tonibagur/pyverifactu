@@ -1,6 +1,6 @@
 [project]
 name = "pyverifactu"
-version = "0.3.0"
+version = "0.3.2"
 description = "Python library for generating and submitting invoice records to the Spanish tax authority (AEAT) using the VERI*FACTU system"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -31,9 +31,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/josemmo/Verifactu-PHP"
-Repository = "https://github.com/josemmo/Verifactu-PHP"
-Documentation = "https://github.com/josemmo/Verifactu-PHP/tree/main/python"
+Homepage = "https://github.com/tonibagur/pyverifactu"
+Repository = "https://github.com/tonibagur/pyverifactu"
+Documentation = "https://github.com/tonibagur/pyverifactu"
 
 [project.optional-dependencies]
 dev = [
