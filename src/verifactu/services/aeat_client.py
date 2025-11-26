@@ -198,7 +198,8 @@ class AeatClient:
 
     def send(
         self, records: Sequence[Union[RegistrationRecord, CancellationRecord]],
-        debug: bool = False
+        debug: bool = False,
+        incidencia: bool = False
     ) -> AeatResponse:
         """
         Send invoicing records to AEAT
@@ -206,6 +207,9 @@ class AeatClient:
         Args:
             records: Invoicing records to send
             debug: If True, print request and response XML for debugging
+            incidencia: If True, marks submission as "incidencia" (records generated
+                        during an incident, e.g., issue_date is before today).
+                        This adds RemisionVoluntaria/Incidencia="S" to the header.
 
         Returns:
             Response from AEAT service
@@ -215,7 +219,7 @@ class AeatClient:
             requests.RequestException: If request sending failed
         """
         # Build XML request
-        xml_body = self._build_xml_request(records)
+        xml_body = self._build_xml_request(records, incidencia=incidencia)
 
         if debug:
             print("\n=== DEBUG: Request XML ===")
@@ -276,13 +280,15 @@ class AeatClient:
             return "https://prewww1.aeat.es"
 
     def _build_xml_request(
-        self, records: Sequence[Union[RegistrationRecord, CancellationRecord]]
+        self, records: Sequence[Union[RegistrationRecord, CancellationRecord]],
+        incidencia: bool = False
     ) -> str:
         """
         Build SOAP XML request
 
         Args:
             records: Records to include in request
+            incidencia: If True, adds RemisionVoluntaria/Incidencia="S" to header
 
         Returns:
             XML string ready to send
@@ -327,6 +333,17 @@ class AeatClient:
             ET.SubElement(
                 representante, f"{{{self.NS_SUM1}}}NIF"
             ).text = self.representative.nif
+
+        # Add RemisionVoluntaria if incidencia flag is set
+        # According to XSD: RemisionVoluntaria contains FechaFinVeriFactu (optional) and Incidencia
+        # Incidencia="S" indicates records were generated during an incident (e.g., backdated invoices)
+        if incidencia:
+            remision_voluntaria = ET.SubElement(
+                cabecera, f"{{{self.NS_SUM1}}}RemisionVoluntaria"
+            )
+            ET.SubElement(
+                remision_voluntaria, f"{{{self.NS_SUM1}}}Incidencia"
+            ).text = "S"
 
         # Add records
         for record in records:
