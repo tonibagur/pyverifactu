@@ -29,7 +29,14 @@ from .models.responses import (
     RecordType,
     ResponseItem,
     AeatResponse,
+    QueryRecordStatus,
+    QueryResponseItem,
+    QueryRecipient,
+    QueryBreakdownItem,
+    QueryResponse,
+    QueryResultType,
 )
+from .models.queries import QueryPeriod, QueryFilter
 from .services import AeatClient
 from .exceptions import AeatException, InvalidModelException
 
@@ -56,6 +63,16 @@ __all__ = [
     "RecordType",
     "ResponseItem",
     "AeatResponse",
+    # Query enums
+    "QueryRecordStatus",
+    "QueryResultType",
+    # Query models
+    "QueryPeriod",
+    "QueryFilter",
+    "QueryResponse",
+    "QueryResponseItem",
+    "QueryRecipient",
+    "QueryBreakdownItem",
     # Services
     "AeatClient",
     # Models

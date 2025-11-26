@@ -14,6 +14,8 @@ from ..models.records.record import Record
 from ..models.records.registration_record import RegistrationRecord
 from ..models.records.cancellation_record import CancellationRecord
 from ..models.responses.aeat_response import AeatResponse
+from ..models.responses.query_response import QueryResponse
+from ..models.queries.query_filter import QueryFilter
 
 
 class AeatClient:
@@ -30,6 +32,7 @@ class AeatClient:
     NS_SOAPENV = "http://schemas.xmlsoap.org/soap/envelope/"
     NS_SUM = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroLR.xsd"
     NS_SUM1 = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd"
+    NS_CONS = "https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/ConsultaLR.xsd"
 
     def __init__(
         self,
@@ -626,3 +629,186 @@ class AeatClient:
         ET.SubElement(
             sistema, f"{{{self.NS_SUM1}}}IndicadorMultiplesOT"
         ).text = ("S" if self.system.has_multiple_taxpayers else "N")
+
+    def query(
+        self, query_filter: QueryFilter, debug: bool = False
+    ) -> QueryResponse:
+        """
+        Query invoices submitted to AEAT
+
+        Args:
+            query_filter: Filter parameters for the query
+            debug: If True, print request and response XML for debugging
+
+        Returns:
+            QueryResponse with the list of invoices
+
+        Raises:
+            AeatException: If AEAT server returned an error
+            requests.RequestException: If request sending failed
+        """
+        # Build XML request
+        xml_body = self._build_query_xml_request(query_filter)
+
+        if debug:
+            print("\n=== DEBUG: Query Request XML ===")
+            print(xml_body)
+            print("=" * 50 + "\n")
+
+        # Prepare request - use same endpoint as send, different SOAP action
+        url = f"{self._get_base_uri()}/wlpl/TIKE-CONT/ws/SistemaFacturacion/VerifactuSOAP"
+        headers = {
+            "Content-Type": "text/xml; charset=utf-8",
+            "User-Agent": f"Mozilla/5.0 (compatible; {self.system.name}/{self.system.version})",
+        }
+
+        # Configure certificate
+        cert = None
+        if self.certificate_path:
+            if self.certificate_password:
+                cert = (self.certificate_path, self.certificate_password)
+            else:
+                cert = self.certificate_path
+
+        # Send request
+        try:
+            response = self.client.post(
+                url,
+                data=xml_body.encode("utf-8"),
+                headers=headers,
+                cert=cert,
+                timeout=60,  # Queries can take longer
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            raise AeatException(f"Failed to send query request to AEAT: {e}") from e
+
+        if debug:
+            print("\n=== DEBUG: Query Response XML ===")
+            print(response.text)
+            print("=" * 50 + "\n")
+
+        # Parse and return response
+        try:
+            return QueryResponse.from_xml(response.text)
+        except AeatException as e:
+            if debug:
+                print(f"\n=== DEBUG: Error parsing query response ===")
+                print(f"Error: {e}")
+                print("=" * 50 + "\n")
+            raise
+
+    def _build_query_xml_request(self, query_filter: QueryFilter) -> str:
+        """
+        Build SOAP XML request for invoice query
+
+        Args:
+            query_filter: Filter parameters for the query
+
+        Returns:
+            XML string ready to send
+        """
+        # Register namespaces globally for proper serialization
+        ET.register_namespace('soapenv', self.NS_SOAPENV)
+        ET.register_namespace('con', self.NS_CONS)
+        ET.register_namespace('sum1', self.NS_SUM1)
+
+        # Build envelope
+        envelope = ET.Element(f"{{{self.NS_SOAPENV}}}Envelope")
+
+        # Add header
+        ET.SubElement(envelope, f"{{{self.NS_SOAPENV}}}Header")
+
+        # Add body
+        body = ET.SubElement(envelope, f"{{{self.NS_SOAPENV}}}Body")
+        base_element = ET.SubElement(
+            body, f"{{{self.NS_CONS}}}ConsultaFactuSistemaFacturacion"
+        )
+
+        # Add header section (Cabecera) - element in ConsultaLR namespace, content in SuministroInformacion
+        cabecera = ET.SubElement(base_element, f"{{{self.NS_CONS}}}Cabecera")
+
+        # Add version
+        ET.SubElement(cabecera, f"{{{self.NS_SUM1}}}IDVersion").text = "1.0"
+
+        # Add obligado emision (issuer)
+        obligado_emision = ET.SubElement(
+            cabecera, f"{{{self.NS_SUM1}}}ObligadoEmision"
+        )
+        ET.SubElement(
+            obligado_emision, f"{{{self.NS_SUM1}}}NombreRazon"
+        ).text = self.taxpayer.name
+        ET.SubElement(
+            obligado_emision, f"{{{self.NS_SUM1}}}NIF"
+        ).text = self.taxpayer.nif
+
+        # Add representative if present
+        if self.representative:
+            ET.SubElement(
+                cabecera, f"{{{self.NS_SUM1}}}IndicadorRepresentante"
+            ).text = "S"
+
+        # Add filter section (FiltroConsulta) - elements in ConsultaLR namespace
+        filtro = ET.SubElement(base_element, f"{{{self.NS_CONS}}}FiltroConsulta")
+
+        # Add period (required) - element in ConsultaLR namespace, subelements in SuministroInformacion
+        periodo = ET.SubElement(filtro, f"{{{self.NS_CONS}}}PeriodoImputacion")
+        ET.SubElement(
+            periodo, f"{{{self.NS_SUM1}}}Ejercicio"
+        ).text = query_filter.period.ejercicio
+        ET.SubElement(
+            periodo, f"{{{self.NS_SUM1}}}Periodo"
+        ).text = query_filter.period.periodo
+
+        # Add invoice number filter (optional)
+        if query_filter.invoice_number:
+            ET.SubElement(
+                filtro, f"{{{self.NS_CONS}}}NumSerieFactura"
+            ).text = query_filter.invoice_number
+
+        # Add counterparty filter (optional)
+        if query_filter.counterparty_nif:
+            contraparte = ET.SubElement(filtro, f"{{{self.NS_CONS}}}Contraparte")
+            ET.SubElement(
+                contraparte, f"{{{self.NS_SUM1}}}NIF"
+            ).text = query_filter.counterparty_nif
+
+        # Add date filter (optional)
+        if query_filter.date_from or query_filter.date_to:
+            fecha_expedicion = ET.SubElement(
+                filtro, f"{{{self.NS_CONS}}}FechaExpedicionFactura"
+            )
+            if query_filter.date_from:
+                ET.SubElement(
+                    fecha_expedicion, f"{{{self.NS_SUM1}}}Desde"
+                ).text = query_filter.date_from.strftime("%d-%m-%Y")
+            if query_filter.date_to:
+                ET.SubElement(
+                    fecha_expedicion, f"{{{self.NS_SUM1}}}Hasta"
+                ).text = query_filter.date_to.strftime("%d-%m-%Y")
+
+        # Add external reference filter (optional)
+        if query_filter.external_reference:
+            ET.SubElement(
+                filtro, f"{{{self.NS_CONS}}}RefExterna"
+            ).text = query_filter.external_reference
+
+        # Add pagination key (optional)
+        if query_filter.pagination_key:
+            ET.SubElement(
+                filtro, f"{{{self.NS_CONS}}}ClavePaginacion"
+            ).text = query_filter.pagination_key
+
+        # Add additional response options (DatosAdicionalesRespuesta)
+        datos_adicionales = ET.SubElement(
+            base_element, f"{{{self.NS_CONS}}}DatosAdicionalesRespuesta"
+        )
+        ET.SubElement(
+            datos_adicionales, f"{{{self.NS_CONS}}}MostrarNombreRazonEmisor"
+        ).text = "S" if query_filter.show_issuer_name else "N"
+        ET.SubElement(
+            datos_adicionales, f"{{{self.NS_CONS}}}MostrarSistemaInformatico"
+        ).text = "S" if query_filter.show_computer_system else "N"
+
+        # Convert to string
+        return ET.tostring(envelope, encoding="unicode", method="xml")
