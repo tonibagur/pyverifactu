@@ -49,6 +49,38 @@ class QueryBreakdownItem:
 
 
 @dataclass
+class QueryComputerSystem:
+    """Information about the computer system that generated the invoice"""
+
+    vendor_name: Optional[str] = None
+    """Name of the software vendor (NombreRazon)"""
+
+    vendor_nif: Optional[str] = None
+    """NIF of the software vendor (NIF)"""
+
+    system_name: Optional[str] = None
+    """Name of the system (NombreSistemaInformatico)"""
+
+    system_id: Optional[str] = None
+    """ID of the system (IdSistemaInformatico)"""
+
+    version: Optional[str] = None
+    """Version of the system (Version)"""
+
+    installation_number: Optional[str] = None
+    """Installation number (NumeroInstalacion)"""
+
+    only_verifactu: Optional[bool] = None
+    """Only supports Verifactu (TipoUsoPosibleSoloVerifactu)"""
+
+    multi_taxpayer: Optional[bool] = None
+    """Supports multiple taxpayers (TipoUsoPosibleMultiOT)"""
+
+    has_multiple_taxpayers: Optional[bool] = None
+    """Has multiple taxpayers (IndicadorMultiplesOT)"""
+
+
+@dataclass
 class QueryPreviousRecord:
     """Information about the previous record in the chain"""
 
@@ -133,3 +165,6 @@ class QueryResponseItem:
 
     previous_record: Optional[QueryPreviousRecord] = None
     """Information about the previous record in the chain (RegistroAnterior)"""
+
+    computer_system: Optional[QueryComputerSystem] = None
+    """Information about the computer system that generated the invoice (SistemaInformatico)"""

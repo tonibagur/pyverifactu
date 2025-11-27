@@ -9,7 +9,7 @@ from .query_record_status import QueryRecordStatus
 # Models
 from .response_item import ResponseItem
 from .aeat_response import AeatResponse
-from .query_response_item import QueryResponseItem, QueryRecipient, QueryBreakdownItem
+from .query_response_item import QueryResponseItem, QueryRecipient, QueryBreakdownItem, QueryPreviousRecord, QueryComputerSystem
 from .query_response import QueryResponse, QueryResultType
 
 __all__ = [
@@ -22,6 +22,8 @@ __all__ = [
     "QueryResponseItem",
     "QueryRecipient",
     "QueryBreakdownItem",
+    "QueryPreviousRecord",
+    "QueryComputerSystem",
     "QueryResponse",
     "QueryResultType",
 ]

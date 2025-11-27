@@ -9,7 +9,7 @@ from xml.etree import ElementTree as ET
 from ...exceptions.aeat_exception import AeatException
 from ..records.invoice_identifier import InvoiceIdentifier
 from .query_record_status import QueryRecordStatus
-from .query_response_item import QueryResponseItem, QueryRecipient, QueryBreakdownItem, QueryPreviousRecord
+from .query_response_item import QueryResponseItem, QueryRecipient, QueryBreakdownItem, QueryPreviousRecord, QueryComputerSystem
 
 
 class QueryResultType(str, Enum):
@@ -369,6 +369,35 @@ class QueryResponse:
                 hash=prev_hash.text if prev_hash is not None else None,
             )
 
+        # Parse computer system info (SistemaInformatico) - only present if show_computer_system=True
+        computer_system = None
+        system_element = item_element.find(
+            "tikR:DatosRegistroFacturacion/tikR:SistemaInformatico", ns
+        )
+        if system_element is not None:
+            # Try both tikR: and tik: namespaces - AEAT response may use either
+            vendor_name_el = system_element.find("tikR:NombreRazon", ns) or system_element.find("tik:NombreRazon", ns)
+            vendor_nif_el = system_element.find("tikR:NIF", ns) or system_element.find("tik:NIF", ns)
+            system_name_el = system_element.find("tikR:NombreSistemaInformatico", ns) or system_element.find("tik:NombreSistemaInformatico", ns)
+            system_id_el = system_element.find("tikR:IdSistemaInformatico", ns) or system_element.find("tik:IdSistemaInformatico", ns)
+            version_el = system_element.find("tikR:Version", ns) or system_element.find("tik:Version", ns)
+            installation_el = system_element.find("tikR:NumeroInstalacion", ns) or system_element.find("tik:NumeroInstalacion", ns)
+            only_verifactu_el = system_element.find("tikR:TipoUsoPosibleSoloVerifactu", ns) or system_element.find("tik:TipoUsoPosibleSoloVerifactu", ns)
+            multi_taxpayer_el = system_element.find("tikR:TipoUsoPosibleMultiOT", ns) or system_element.find("tik:TipoUsoPosibleMultiOT", ns)
+            has_multi_el = system_element.find("tikR:IndicadorMultiplesOT", ns) or system_element.find("tik:IndicadorMultiplesOT", ns)
+
+            computer_system = QueryComputerSystem(
+                vendor_name=vendor_name_el.text if vendor_name_el is not None else None,
+                vendor_nif=vendor_nif_el.text if vendor_nif_el is not None else None,
+                system_name=system_name_el.text if system_name_el is not None else None,
+                system_id=system_id_el.text if system_id_el is not None else None,
+                version=version_el.text if version_el is not None else None,
+                installation_number=installation_el.text if installation_el is not None else None,
+                only_verifactu=only_verifactu_el.text == "S" if only_verifactu_el is not None else None,
+                multi_taxpayer=multi_taxpayer_el.text == "S" if multi_taxpayer_el is not None else None,
+                has_multiple_taxpayers=has_multi_el.text == "S" if has_multi_el is not None else None,
+            )
+
         return QueryResponseItem(
             invoice_id=invoice_id,
             issuer_name=issuer_name,
@@ -389,4 +418,5 @@ class QueryResponse:
             presentation_timestamp=presentation_timestamp,
             is_first_record=is_first_record,
             previous_record=previous_record,
+            computer_system=computer_system,
         )
