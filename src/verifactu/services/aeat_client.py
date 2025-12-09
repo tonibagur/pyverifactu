@@ -698,6 +698,37 @@ class AeatClient:
                 print("=" * 50 + "\n")
             raise
 
+    def build_record_xml(
+        self, record: Union[RegistrationRecord, CancellationRecord]
+    ) -> str:
+        """
+        Build XML representation of a single invoice record in AEAT format.
+
+        This method generates the XML for a single record (RegistroFactura containing
+        RegistroAlta or RegistroAnulacion) without the SOAP envelope.
+        Useful for viewing/exporting invoice data in AEAT format.
+
+        Args:
+            record: The registration or cancellation record to serialize
+
+        Returns:
+            XML string representation of the record
+        """
+        # Reuse existing _build_xml_request with a single record
+        full_xml = self._build_xml_request([record])
+
+        # Extract just the RegistroFactura element from the full SOAP XML
+        # Parse and find the RegistroFactura element
+        root = ET.fromstring(full_xml)
+
+        # Find RegistroFactura in the XML tree (it's nested inside Body/RegFactuSistemaFacturacion)
+        registro_factura = root.find(f".//{{{self.NS_SUM}}}RegistroFactura")
+
+        if registro_factura is None:
+            raise ValueError("Could not find RegistroFactura in generated XML")
+
+        return ET.tostring(registro_factura, encoding="unicode", method="xml")
+
     def _build_query_xml_request(self, query_filter: QueryFilter) -> str:
         """
         Build SOAP XML request for invoice query
