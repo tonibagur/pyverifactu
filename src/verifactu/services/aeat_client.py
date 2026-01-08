@@ -355,6 +355,114 @@ class AeatClient:
         # Convert to string
         return ET.tostring(envelope, encoding="unicode", method="xml")
 
+    def build_record_xml(
+        self, record: Union[RegistrationRecord, CancellationRecord]
+    ) -> str:
+        """
+        Build XML representation of a single record.
+
+        This generates the XML for a single invoice record in AEAT format,
+        useful for displaying or debugging the XML that would be sent.
+
+        Args:
+            record: The record to serialize
+
+        Returns:
+            XML string representation of the record
+        """
+        # Register namespaces
+        ET.register_namespace('sum', self.NS_SUM)
+        ET.register_namespace('sum1', self.NS_SUM1)
+
+        # Create a root element for the record
+        root = ET.Element(f"{{{self.NS_SUM}}}RegistroFactura")
+
+        # Use _export_record to populate the record element
+        # Determine record type
+        if isinstance(record, RegistrationRecord):
+            record_element_name = "RegistroAlta"
+        else:
+            record_element_name = "RegistroAnulacion"
+
+        record_element = ET.SubElement(
+            root, f"{{{self.NS_SUM1}}}{record_element_name}"
+        )
+
+        # Add version
+        ET.SubElement(
+            record_element, f"{{{self.NS_SUM1}}}IDVersion"
+        ).text = "1.0"
+
+        # Export record-specific properties
+        if isinstance(record, RegistrationRecord):
+            self._export_registration_record(record_element, record)
+        else:
+            self._export_cancellation_record(record_element, record)
+
+        # Add chaining (Encadenamiento)
+        self._add_chaining(record_element, record)
+
+        # Add computer system
+        self._add_computer_system(record_element)
+
+        # Add hash metadata
+        import datetime
+        import time
+
+        dt = record.hashed_at
+
+        # If no timezone info, add local timezone (like PHP does)
+        if dt.tzinfo is None:
+            if time.daylight and time.localtime().tm_isdst:
+                offset_seconds = -time.altzone
+            else:
+                offset_seconds = -time.timezone
+
+            local_tz = datetime.timezone(datetime.timedelta(seconds=offset_seconds))
+            dt = dt.replace(tzinfo=local_tz)
+
+        # Format without microseconds: YYYY-MM-DDTHH:MM:SS+HH:MM
+        dt_str = dt.strftime('%Y-%m-%dT%H:%M:%S')
+
+        # Add timezone offset in format +HH:MM
+        offset = dt.utcoffset()
+        if offset is not None:
+            total_seconds = int(offset.total_seconds())
+            hours, remainder = divmod(abs(total_seconds), 3600)
+            minutes = remainder // 60
+            sign = '+' if total_seconds >= 0 else '-'
+            dt_str += f'{sign}{hours:02d}:{minutes:02d}'
+        else:
+            dt_str += '+00:00'
+
+        ET.SubElement(
+            record_element, f"{{{self.NS_SUM1}}}FechaHoraHusoGenRegistro"
+        ).text = dt_str
+        ET.SubElement(
+            record_element, f"{{{self.NS_SUM1}}}TipoHuella"
+        ).text = "01"
+        ET.SubElement(
+            record_element, f"{{{self.NS_SUM1}}}Huella"
+        ).text = record.hash
+
+        # Add correction fields if present
+        if record.previous_rejection:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}RechazoPrevio"
+            ).text = record.previous_rejection
+
+        if record.correction:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}Subsanacion"
+            ).text = record.correction
+
+        if record.external_reference:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}RefExterna"
+            ).text = record.external_reference
+
+        return ET.tostring(root, encoding="unicode", method="xml")
+
     def _export_record(
         self,
         base_element: ET.Element,
