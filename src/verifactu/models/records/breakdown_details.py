@@ -104,20 +104,15 @@ class BreakdownDetails(Model):
         if self.base_amount is None or self.tax_rate is None or self.tax_amount is None:
             return self
 
-        valid_tax_amount = False
-        best_tax_amount = float(self.base_amount) * (float(self.tax_rate) / 100)
+        expected_tax_amount = float(self.base_amount) * (float(self.tax_rate) / 100)
+        actual_tax_amount = float(self.tax_amount)
 
         # Check with tolerance of ±0.02
-        for tolerance in [0, -0.01, 0.01, -0.02, 0.02]:
-            expected_tax_amount = f"{best_tax_amount + tolerance:.2f}"
-            if self.tax_amount == expected_tax_amount:
-                valid_tax_amount = True
-                break
-
-        if not valid_tax_amount:
-            best_tax_amount_str = f"{best_tax_amount:.2f}"
+        if abs(actual_tax_amount - expected_tax_amount) > 0.02:
+            expected_tax_amount_str = f"{expected_tax_amount:.2f}"
             raise ValueError(
-                f"Expected tax amount of {best_tax_amount_str}, got {self.tax_amount}"
+                f"Expected tax amount of {expected_tax_amount_str}, "
+                f"got {self.tax_amount}"
             )
 
         return self

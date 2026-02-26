@@ -133,20 +133,15 @@ class RegistrationRecord(Record):
                 f"got {self.total_tax_amount}"
             )
 
-        # Validate total amount with tolerance
-        valid_total_amount = False
-        best_total_amount = total_base_amount + expected_total_tax_amount
+        # Validate total amount with tolerance of ±0.02
+        expected_total_amount = total_base_amount + expected_total_tax_amount
+        actual_total_amount = float(self.total_amount)
 
-        for tolerance in [0, -0.01, 0.01, -0.02, 0.02]:
-            expected_total_amount = f"{best_total_amount + tolerance:.2f}"
-            if self.total_amount == expected_total_amount:
-                valid_total_amount = True
-                break
-
-        if not valid_total_amount:
-            best_total_amount_str = f"{best_total_amount:.2f}"
+        if abs(actual_total_amount - expected_total_amount) > 0.02:
+            expected_total_amount_str = f"{expected_total_amount:.2f}"
             raise ValueError(
-                f"Expected total amount of {best_total_amount_str}, got {self.total_amount}"
+                f"Expected total amount of {expected_total_amount_str}, "
+                f"got {self.total_amount}"
             )
 
         return self
