@@ -64,6 +64,17 @@ class TestBreakdownDetails:
         )
         details_high.validate()
 
+    def test_tolerance_with_banker_rounding_edge_case(self) -> None:
+        details = BreakdownDetails(
+            tax_type=TaxType.IVA,
+            regime_type=RegimeType.C01,
+            operation_type=OperationType.SUBJECT,
+            base_amount="112.50",
+            tax_rate="21.00",
+            tax_amount="23.62",
+        )
+        details.validate()
+
     def test_validates_operation_type(self) -> None:
         """Test operation type validation requirements"""
 
