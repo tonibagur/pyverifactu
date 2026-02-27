@@ -64,6 +64,49 @@ class TestBreakdownDetails:
         )
         details_high.validate()
 
+    def test_tax_amount_tolerance_with_rounding_boundary(self) -> None:
+        """Test that tax amounts within ±0.02 are accepted even at float rounding boundaries.
+
+        When base_amount * tax_rate / 100 falls exactly on a .XX5 boundary
+        (e.g., 12.50 * 21% = 2.625), the discrete tolerance approach can miss
+        valid tax_amount values because float formatting skips over them.
+
+        For example, 2.625 formatted with tolerances [0, ±0.01, ±0.02] generates
+        the set {"2.60", "2.62", "2.64"} — missing "2.61" and "2.63" which are
+        both within 0.02 of 2.625.
+        """
+        # base_amount=12.50, tax_rate=21.00 => exact tax = 2.625
+        # tax_amount="2.61" has diff of 0.015 from 2.625, well within 0.02
+        BreakdownDetails(
+            tax_type=TaxType.IVA,
+            regime_type=RegimeType.C01,
+            operation_type=OperationType.SUBJECT,
+            base_amount="12.50",
+            tax_rate="21.00",
+            tax_amount="2.61",
+        )
+
+        # tax_amount="2.64" has diff of 0.015 from 2.625, well within 0.02
+        BreakdownDetails(
+            tax_type=TaxType.IVA,
+            regime_type=RegimeType.C01,
+            operation_type=OperationType.SUBJECT,
+            base_amount="12.50",
+            tax_rate="21.00",
+            tax_amount="2.64",
+        )
+
+        # Another common case: base_amount=1.50, tax_rate=21.00 => exact tax = 0.315
+        # tax_amount="0.31" has diff of 0.005, well within 0.02
+        BreakdownDetails(
+            tax_type=TaxType.IVA,
+            regime_type=RegimeType.C01,
+            operation_type=OperationType.SUBJECT,
+            base_amount="1.50",
+            tax_rate="21.00",
+            tax_amount="0.31",
+        )
+
     def test_validates_operation_type(self) -> None:
         """Test operation type validation requirements"""
 
