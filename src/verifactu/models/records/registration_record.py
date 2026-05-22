@@ -13,6 +13,7 @@ from verifactu.models.records.corrective_type import CorrectiveType
 from verifactu.models.records.invoice_identifier import InvoiceIdentifier
 from verifactu.models.records.fiscal_identifier import FiscalIdentifier
 from verifactu.models.records.foreign_fiscal_identifier import ForeignFiscalIdentifier
+from verifactu.models.records.third_or_recipient_type import ThirdOrRecipientType
 from verifactu.models.records.breakdown_details import BreakdownDetails
 
 
@@ -40,6 +41,10 @@ class RegistrationRecord(Record):
     # Descripción del objeto de la factura
     # @field DescripcionOperacion
     description: str = Field(..., max_length=500, description="Invoice description (max 500 characters)")
+
+    # Identificador que especifica si la factura ha sido expedida materialmente por un tercero o por el destinatario (contraparte)
+    # @field EmitidaPorTerceroODestinatario
+    issued_by_third_or_recipient: Optional[ThirdOrRecipientType] = Field(None, description="Issued by Third or Recipient")
 
     # Destinatarios de la factura
     # @field Destinatarios
@@ -110,7 +115,7 @@ class RegistrationRecord(Record):
         if v is not None and not re.match(r"^-?\d{1,12}\.\d{2}$", v):
             raise ValueError("Amount must match format -?\\d{1,12}.\\d{2} (e.g., '100.00')")
         return v
-
+    
     @model_validator(mode="after")
     def validate_totals(self) -> "RegistrationRecord":
         """Validate total amounts match breakdown"""

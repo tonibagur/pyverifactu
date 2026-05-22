@@ -7,6 +7,7 @@ from .operation_type import OperationType
 from .regime_type import RegimeType
 from .corrective_type import CorrectiveType
 from .foreign_id_type import ForeignIdType
+from .third_or_recipient_type import ThirdOrRecipientType
 
 # Models
 from .invoice_identifier import InvoiceIdentifier
@@ -27,6 +28,7 @@ __all__ = [
     "RegimeType",
     "CorrectiveType",
     "ForeignIdType",
+    "ThirdOrRecipientType",
     # Models
     "InvoiceIdentifier",
     "FiscalIdentifier",
