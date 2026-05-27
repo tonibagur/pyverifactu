@@ -118,6 +118,9 @@ class QueryResponseItem:
     corrective_type: Optional[str] = None
     """Corrective invoice type (TipoRectificativa)"""
 
+    issued_by_third_or_recipient: Optional[str] = None
+    """Issued by a third party ('T') or by the recipient ('D') (EmitidaPorTerceroODestinatario)."""
+
     operation_date: Optional[datetime] = None
     """Date of operation (FechaOperacion)"""
 

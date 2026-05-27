@@ -199,6 +199,16 @@ class QueryResponse:
             corrective_type_element.text if corrective_type_element is not None else None
         )
 
+        # Parse issued by third or recipient (Autofacturas) - optional, may not be present
+        issued_by_third_or_recipient_element = item_element.find(
+            "tikR:DatosRegistroFacturacion/tikR:EmitidaPorTerceroODestinatario", ns
+        )
+        issued_by_third_or_recipient = (
+            issued_by_third_or_recipient_element.text
+            if issued_by_third_or_recipient_element is not None
+            else None
+        )
+
         # Parse description
         description_element = item_element.find(
             "tikR:DatosRegistroFacturacion/tikR:DescripcionOperacion", ns
@@ -403,6 +413,7 @@ class QueryResponse:
             issuer_name=issuer_name,
             invoice_type=invoice_type,
             corrective_type=corrective_type,
+            issued_by_third_or_recipient=issued_by_third_or_recipient,
             description=description,
             total_amount=total_amount,
             total_tax_amount=total_tax_amount,
