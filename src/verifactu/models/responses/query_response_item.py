@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional, List
 
 from ..records.invoice_identifier import InvoiceIdentifier
+from ..records.third_or_recipient_type import ThirdOrRecipientType
 from .query_record_status import QueryRecordStatus
 
 
@@ -118,7 +119,7 @@ class QueryResponseItem:
     corrective_type: Optional[str] = None
     """Corrective invoice type (TipoRectificativa)"""
 
-    issued_by_third_or_recipient: Optional[str] = None
+    issued_by_third_or_recipient: Optional[ThirdOrRecipientType] = None
     """Issued by a third party ('T') or by the recipient ('D') (EmitidaPorTerceroODestinatario)."""
 
     operation_date: Optional[datetime] = None

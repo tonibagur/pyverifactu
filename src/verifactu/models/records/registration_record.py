@@ -206,6 +206,17 @@ class RegistrationRecord(Record):
             raise ValueError("This type of invoice cannot have replaced invoices")
         return self
 
+    @model_validator(mode="after")
+    def validate_issued_by_third_or_recipient(self) -> "RegistrationRecord":
+        """Reject THIRD ('T') until Tercero element is supported"""
+        if self.issued_by_third_or_recipient == ThirdOrRecipientType.THIRD:
+            raise ValueError(
+                "issued_by_third_or_recipient='T' (THIRD) is not supported yet: "
+                "the Tercero element required by AEAT is not implemented. "
+                "Only RECIPIENT ('D') is currently supported."
+            )
+        return self
+
     def calculate_hash(self) -> str:
         """
         Calculate record hash
