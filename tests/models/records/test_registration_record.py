@@ -16,6 +16,7 @@ from verifactu.models.records import (
     OperationType,
     CorrectiveType,
     ForeignIdType,
+    ThirdOrRecipientType,
 )
 from verifactu.exceptions import InvalidModelException
 
@@ -403,3 +404,105 @@ class TestRegistrationRecord:
         )
         record.hash = record.calculate_hash()
         record.validate()
+
+    def test_issued_by_third_or_recipient(self) -> None:
+        """Test EmitidaPorTerceroODestinatario field (autofacturas)"""
+        # Caso A: RECIPIENT ("D") - autofactura emitida por el destinatario
+        record_recipient = RegistrationRecord(
+            invoice_id=InvoiceIdentifier(
+                issuer_id="A00000000",
+                invoice_number="AUTO-0001",
+                issue_date=datetime(2025, 6, 1),
+            ),
+            issuer_name="Perico de los Palotes, S.A.",
+            invoice_type=InvoiceType.FACTURA,
+            description="Autofactura emitida por el destinatario",
+            recipients=[FiscalIdentifier(name="Antonio García Pérez", nif="00000000A")],
+            breakdown=[
+                BreakdownDetails(
+                    tax_type=TaxType.IVA,
+                    regime_type=RegimeType.C01,
+                    operation_type=OperationType.SUBJECT,
+                    base_amount="10.00",
+                    tax_rate="21.00",
+                    tax_amount="2.10",
+                )
+            ],
+            total_tax_amount="2.10",
+            total_amount="12.10",
+            issued_by_third_or_recipient=ThirdOrRecipientType.RECIPIENT,
+            previous_invoice_id=None,
+            previous_hash=None,
+            hashed_at=datetime(2025, 6, 1, 20, 30, 40, tzinfo=timezone(timedelta(hours=2))),
+            hash="",
+        )
+        assert record_recipient.issued_by_third_or_recipient == ThirdOrRecipientType.RECIPIENT
+        assert record_recipient.issued_by_third_or_recipient.value == "D"
+        record_recipient.hash = record_recipient.calculate_hash()
+        record_recipient.validate()
+
+        # Caso C: campo opcional - por defecto None
+        record_default = RegistrationRecord(
+            invoice_id=InvoiceIdentifier(
+                issuer_id="A00000000",
+                invoice_number="AUTO-0002",
+                issue_date=datetime(2025, 6, 1),
+            ),
+            issuer_name="Perico de los Palotes, S.A.",
+            invoice_type=InvoiceType.FACTURA,
+            description="Factura ordinaria",
+            recipients=[FiscalIdentifier(name="Antonio García Pérez", nif="00000000A")],
+            breakdown=[
+                BreakdownDetails(
+                    tax_type=TaxType.IVA,
+                    regime_type=RegimeType.C01,
+                    operation_type=OperationType.SUBJECT,
+                    base_amount="10.00",
+                    tax_rate="21.00",
+                    tax_amount="2.10",
+                )
+            ],
+            total_tax_amount="2.10",
+            total_amount="12.10",
+            previous_invoice_id=None,
+            previous_hash=None,
+            hashed_at=datetime(2025, 6, 1, 20, 30, 40, tzinfo=timezone(timedelta(hours=2))),
+            hash="",
+        )
+        assert record_default.issued_by_third_or_recipient is None
+
+        # Caso D: el campo NO debe afectar al hash
+        # Dos records idénticos salvo issued_by_third_or_recipient deben producir el mismo hash.
+        common_kwargs = dict(
+            invoice_id=InvoiceIdentifier(
+                issuer_id="A00000000",
+                invoice_number="AUTO-0003",
+                issue_date=datetime(2025, 6, 1),
+            ),
+            issuer_name="Perico de los Palotes, S.A.",
+            invoice_type=InvoiceType.FACTURA,
+            description="Test invariancia hash",
+            recipients=[FiscalIdentifier(name="Antonio García Pérez", nif="00000000A")],
+            breakdown=[
+                BreakdownDetails(
+                    tax_type=TaxType.IVA,
+                    regime_type=RegimeType.C01,
+                    operation_type=OperationType.SUBJECT,
+                    base_amount="10.00",
+                    tax_rate="21.00",
+                    tax_amount="2.10",
+                )
+            ],
+            total_tax_amount="2.10",
+            total_amount="12.10",
+            previous_invoice_id=None,
+            previous_hash=None,
+            hashed_at=datetime(2025, 6, 1, 20, 30, 40, tzinfo=timezone(timedelta(hours=2))),
+            hash="",
+        )
+        record_without = RegistrationRecord(**common_kwargs)
+        record_with = RegistrationRecord(
+            **common_kwargs,
+            issued_by_third_or_recipient=ThirdOrRecipientType.RECIPIENT,
+        )
+        assert record_without.calculate_hash() == record_with.calculate_hash()

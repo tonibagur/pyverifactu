@@ -92,6 +92,7 @@ python example.py
 - `OperationType`: SUBJECT, NON_SUBJECT, EXEMPT (with helper methods: `is_subject()`, `is_non_subject()`, `is_exempt()`)
 - `RegimeType`: C01-C16 (tax regimes)
 - `CorrectiveType`: SUBSTITUTION (S), DIFFERENCES (I)
+- `ThirdOrRecipientType`: THIRD (T), RECIPIENT (D) - D means issued by recipient (Destinatario) : autofactura (`EmitidaPorTerceroODestinatario`)
 
 #### Services (`src/verifactu/services/`)
 

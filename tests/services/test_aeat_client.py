@@ -13,6 +13,7 @@ from verifactu.models.records.invoice_type import InvoiceType
 from verifactu.models.records.tax_type import TaxType
 from verifactu.models.records.regime_type import RegimeType
 from verifactu.models.records.operation_type import OperationType
+from verifactu.models.records.third_or_recipient_type import ThirdOrRecipientType
 
 
 class TestAeatClientXmlGeneration:
@@ -142,6 +143,69 @@ class TestAeatClientXmlGeneration:
         remision_pos = xml.find("RemisionVoluntaria")
 
         assert obligado_pos < representante_pos < remision_pos
+
+    def test_xml_includes_emitida_por_tercero_o_destinatario(
+        self, computer_system: ComputerSystem, taxpayer: FiscalIdentifier
+    ):
+        """Test that EmitidaPorTerceroODestinatario appears in the right XML position."""
+        record = RegistrationRecord(
+            invoice_id=InvoiceIdentifier(
+                issuer_id="A98765432",
+                invoice_number="AUTO-2025-001",
+                issue_date=datetime(2025, 1, 15),
+            ),
+            issuer_name="Test Company SL",
+            invoice_type=InvoiceType.FACTURA,
+            description="Autofactura emitida por el destinatario",
+            recipients=[FiscalIdentifier(name="Customer SL", nif="B11111111")],
+            breakdown=[
+                BreakdownDetails(
+                    tax_type=TaxType.IVA,
+                    regime_type=RegimeType.C01,
+                    operation_type=OperationType.SUBJECT,
+                    tax_rate="21.00",
+                    base_amount="100.00",
+                    tax_amount="21.00",
+                )
+            ],
+            total_tax_amount="21.00",
+            total_amount="121.00",
+            issued_by_third_or_recipient=ThirdOrRecipientType.RECIPIENT,
+            hashed_at=datetime(2025, 1, 15, 10, 0, 0),
+            hash="",
+        )
+        record.hash = record.calculate_hash()
+
+        client = AeatClient(computer_system, taxpayer)
+        xml = client._build_xml_request([record])
+
+        # Element must be present with value "D"
+        assert "<sum1:EmitidaPorTerceroODestinatario>D</sum1:EmitidaPorTerceroODestinatario>" in xml
+
+        # Position: after DescripcionOperacion, before Destinatarios (XSD order)
+        descripcion_pos = xml.find("DescripcionOperacion")
+        emitida_pos = xml.find("EmitidaPorTerceroODestinatario")
+        destinatarios_pos = xml.find("Destinatarios")
+
+        assert descripcion_pos > 0, "DescripcionOperacion should be in XML"
+        assert emitida_pos > 0, "EmitidaPorTerceroODestinatario should be in XML"
+        assert destinatarios_pos > 0, "Destinatarios should be in XML"
+        assert descripcion_pos < emitida_pos < destinatarios_pos, (
+            "EmitidaPorTerceroODestinatario must appear after DescripcionOperacion "
+            "and before Destinatarios"
+        )
+
+    def test_xml_omits_emitida_por_tercero_o_destinatario_when_none(
+        self, computer_system: ComputerSystem, taxpayer: FiscalIdentifier, sample_record: RegistrationRecord
+    ):
+        """Test that the element is omitted from XML when the field is None."""
+        # sample_record fixture does not set issued_by_third_or_recipient
+        assert sample_record.issued_by_third_or_recipient is None
+
+        client = AeatClient(computer_system, taxpayer)
+        xml = client._build_xml_request([sample_record])
+
+        assert "EmitidaPorTerceroODestinatario" not in xml
 
     def test_send_method_accepts_incidencia_parameter(
         self, computer_system: ComputerSystem, taxpayer: FiscalIdentifier

@@ -8,6 +8,7 @@ from xml.etree import ElementTree as ET
 
 from ...exceptions.aeat_exception import AeatException
 from ..records.invoice_identifier import InvoiceIdentifier
+from ..records.third_or_recipient_type import ThirdOrRecipientType
 from .query_record_status import QueryRecordStatus
 from .query_response_item import QueryResponseItem, QueryRecipient, QueryBreakdownItem, QueryPreviousRecord, QueryComputerSystem
 
@@ -198,6 +199,23 @@ class QueryResponse:
         corrective_type = (
             corrective_type_element.text if corrective_type_element is not None else None
         )
+
+        # Parse issued by third or recipient (Autofacturas) - optional, may not be present
+        issued_by_third_or_recipient_element = item_element.find(
+            "tikR:DatosRegistroFacturacion/tikR:EmitidaPorTerceroODestinatario", ns
+        )
+        issued_by_third_or_recipient: Optional[ThirdOrRecipientType] = None
+        if (
+            issued_by_third_or_recipient_element is not None
+            and issued_by_third_or_recipient_element.text
+        ):
+            try:
+                issued_by_third_or_recipient = ThirdOrRecipientType(
+                    issued_by_third_or_recipient_element.text
+                )
+            except ValueError:
+                # Unknown value from AEAT - leave as None rather than fail parsing
+                pass
 
         # Parse description
         description_element = item_element.find(
@@ -403,6 +421,7 @@ class QueryResponse:
             issuer_name=issuer_name,
             invoice_type=invoice_type,
             corrective_type=corrective_type,
+            issued_by_third_or_recipient=issued_by_third_or_recipient,
             description=description,
             total_amount=total_amount,
             total_tax_amount=total_tax_amount,

@@ -100,6 +100,26 @@ print(f"Status: {response.status}")
 print(f"CSV: {response.csv}")
 ```
 
+### Autofacturas (self-billing)
+
+Para indicar que una factura ha sido expedida materialmente por un tercero
+o por el destinatario, se puede informar el campo
+`issued_by_third_or_recipient` con `ThirdOrRecipientType.THIRD` (`"T"`)
+o `ThirdOrRecipientType.RECIPIENT` (`"D"`).
+Se mapea al elemento `EmitidaPorTerceroODestinatario` del registro de alta de AEAT.
+
+```python
+from verifactu import RegistrationRecord, ThirdOrRecipientType
+
+record = RegistrationRecord(
+    ...,
+    issued_by_third_or_recipient=ThirdOrRecipientType.RECIPIENT,
+)
+```
+
+> Nota: el soporte para identificar al tercero expedidor (elemento
+> `Tercero` del XSD) aún no está implementado (no se usa ni soporta de momento)
+
 ## Testing
 
 Run tests with pytest:

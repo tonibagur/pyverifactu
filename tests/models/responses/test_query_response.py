@@ -1,6 +1,7 @@
 """Tests for QueryResponse XML parsing"""
 
 import pytest
+from verifactu.models.records import ThirdOrRecipientType
 from verifactu.models.responses.query_response import QueryResponse, QueryResultType
 
 
@@ -243,3 +244,94 @@ class TestQueryResponseParsing:
         # Check totals
         assert item.total_amount == "1478.61"
         assert item.total_tax_amount == "256.62"
+
+    def test_parse_response_with_emitida_por_tercero_o_destinatario(self):
+        """Test parsing EmitidaPorTerceroODestinatario from AEAT query response"""
+        xml = '''<?xml version="1.0" encoding="UTF-8"?>
+        <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+        <env:Body>
+        <tikLRRC:RespuestaConsultaFactuSistemaFacturacion
+            xmlns:tik="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd"
+            xmlns:tikLRRC="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd">
+            <tikLRRC:PeriodoImputacion>
+                <tikLRRC:Ejercicio>2025</tikLRRC:Ejercicio>
+                <tikLRRC:Periodo>11</tikLRRC:Periodo>
+            </tikLRRC:PeriodoImputacion>
+            <tikLRRC:IndicadorPaginacion>N</tikLRRC:IndicadorPaginacion>
+            <tikLRRC:ResultadoConsulta>ConDatos</tikLRRC:ResultadoConsulta>
+            <tikLRRC:RegistroRespuestaConsultaFactuSistemaFacturacion>
+                <tikLRRC:IDFactura>
+                    <tik:IDEmisorFactura>B12345678</tik:IDEmisorFactura>
+                    <tik:NumSerieFactura>AUTO-001</tik:NumSerieFactura>
+                    <tik:FechaExpedicionFactura>25-11-2025</tik:FechaExpedicionFactura>
+                </tikLRRC:IDFactura>
+                <tikLRRC:DatosRegistroFacturacion>
+                    <tikLRRC:NombreRazonEmisor>Seller Company</tikLRRC:NombreRazonEmisor>
+                    <tikLRRC:TipoFactura>F1</tikLRRC:TipoFactura>
+                    <tikLRRC:DescripcionOperacion>Autofactura</tikLRRC:DescripcionOperacion>
+                    <tikLRRC:EmitidaPorTerceroODestinatario>D</tikLRRC:EmitidaPorTerceroODestinatario>
+                    <tikLRRC:ImporteTotal>121.00</tikLRRC:ImporteTotal>
+                    <tikLRRC:CuotaTotal>21.00</tikLRRC:CuotaTotal>
+                    <tikLRRC:Huella>HASH001</tikLRRC:Huella>
+                    <tikLRRC:Encadenamiento>
+                        <tikLRRC:PrimerRegistro>S</tikLRRC:PrimerRegistro>
+                    </tikLRRC:Encadenamiento>
+                </tikLRRC:DatosRegistroFacturacion>
+                <tikLRRC:EstadoRegistro>
+                    <tikLRRC:EstadoRegistro>Correcto</tikLRRC:EstadoRegistro>
+                </tikLRRC:EstadoRegistro>
+            </tikLRRC:RegistroRespuestaConsultaFactuSistemaFacturacion>
+        </tikLRRC:RespuestaConsultaFactuSistemaFacturacion>
+        </env:Body>
+        </env:Envelope>'''
+
+        response = QueryResponse.from_xml(xml)
+        assert len(response.items) == 1
+
+        item = response.items[0]
+        assert item.issued_by_third_or_recipient == ThirdOrRecipientType.RECIPIENT
+        assert item.issued_by_third_or_recipient.value == "D"
+
+    def test_parse_response_emitida_por_tercero_o_destinatario_invalid_value(self):
+        """Test that an unknown value for EmitidaPorTerceroODestinatario is parsed as None"""
+        xml = '''<?xml version="1.0" encoding="UTF-8"?>
+        <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+        <env:Body>
+        <tikLRRC:RespuestaConsultaFactuSistemaFacturacion
+            xmlns:tik="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/SuministroInformacion.xsd"
+            xmlns:tikLRRC="https://www2.agenciatributaria.gob.es/static_files/common/internet/dep/aplicaciones/es/aeat/tike/cont/ws/RespuestaConsultaLR.xsd">
+            <tikLRRC:PeriodoImputacion>
+                <tikLRRC:Ejercicio>2025</tikLRRC:Ejercicio>
+                <tikLRRC:Periodo>11</tikLRRC:Periodo>
+            </tikLRRC:PeriodoImputacion>
+            <tikLRRC:IndicadorPaginacion>N</tikLRRC:IndicadorPaginacion>
+            <tikLRRC:ResultadoConsulta>ConDatos</tikLRRC:ResultadoConsulta>
+            <tikLRRC:RegistroRespuestaConsultaFactuSistemaFacturacion>
+                <tikLRRC:IDFactura>
+                    <tik:IDEmisorFactura>B12345678</tik:IDEmisorFactura>
+                    <tik:NumSerieFactura>AUTO-002</tik:NumSerieFactura>
+                    <tik:FechaExpedicionFactura>25-11-2025</tik:FechaExpedicionFactura>
+                </tikLRRC:IDFactura>
+                <tikLRRC:DatosRegistroFacturacion>
+                    <tikLRRC:NombreRazonEmisor>Seller Company</tikLRRC:NombreRazonEmisor>
+                    <tikLRRC:TipoFactura>F1</tikLRRC:TipoFactura>
+                    <tikLRRC:EmitidaPorTerceroODestinatario>X</tikLRRC:EmitidaPorTerceroODestinatario>
+                    <tikLRRC:Huella>HASH002</tikLRRC:Huella>
+                    <tikLRRC:Encadenamiento>
+                        <tikLRRC:PrimerRegistro>S</tikLRRC:PrimerRegistro>
+                    </tikLRRC:Encadenamiento>
+                </tikLRRC:DatosRegistroFacturacion>
+                <tikLRRC:EstadoRegistro>
+                    <tikLRRC:EstadoRegistro>Correcto</tikLRRC:EstadoRegistro>
+                </tikLRRC:EstadoRegistro>
+            </tikLRRC:RegistroRespuestaConsultaFactuSistemaFacturacion>
+        </tikLRRC:RespuestaConsultaFactuSistemaFacturacion>
+        </env:Body>
+        </env:Envelope>'''
+
+        response = QueryResponse.from_xml(xml)
+        assert len(response.items) == 1
+
+        # Unknown value should not raise; it must be parsed as None
+        item = response.items[0]
+        assert item.issued_by_third_or_recipient is None

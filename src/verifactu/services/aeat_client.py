@@ -596,6 +596,12 @@ class AeatClient:
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}DescripcionOperacion"
             ).text = record.description
+        
+        # Add issued by third or recipient if present (Autofacturas)
+        if record.issued_by_third_or_recipient:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}EmitidaPorTerceroODestinatario"
+            ).text = record.issued_by_third_or_recipient.value
 
         # Add recipients (Destinatarios)
         if record.recipients:
