@@ -633,18 +633,25 @@ class AeatClient:
             ET.SubElement(
                 detalle, f"{{{self.NS_SUM1}}}ClaveRegimen"
             ).text = detail.regime_type.value
-            ET.SubElement(
-                detalle, f"{{{self.NS_SUM1}}}CalificacionOperacion"
-            ).text = detail.operation_type.value
-            ET.SubElement(
-                detalle, f"{{{self.NS_SUM1}}}TipoImpositivo"
-            ).text = detail.tax_rate
+            if detail.operation_type.is_exempt():
+                ET.SubElement(
+                    detalle, f"{{{self.NS_SUM1}}}OperacionExenta"
+                ).text = detail.operation_type.value
+            else:
+                ET.SubElement(
+                    detalle, f"{{{self.NS_SUM1}}}CalificacionOperacion"
+                ).text = detail.operation_type.value
+            if detail.tax_rate not in (None, ""):
+                ET.SubElement(
+                    detalle, f"{{{self.NS_SUM1}}}TipoImpositivo"
+                ).text = detail.tax_rate
             ET.SubElement(
                 detalle, f"{{{self.NS_SUM1}}}BaseImponibleOimporteNoSujeto"
             ).text = detail.base_amount
-            ET.SubElement(
-                detalle, f"{{{self.NS_SUM1}}}CuotaRepercutida"
-            ).text = detail.tax_amount
+            if detail.tax_amount not in (None, ""):
+                ET.SubElement(
+                    detalle, f"{{{self.NS_SUM1}}}CuotaRepercutida"
+                ).text = detail.tax_amount
 
         # Add totals
         ET.SubElement(
