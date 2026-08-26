@@ -223,6 +223,146 @@ class TestAeatClientXmlGeneration:
         assert sig.parameters["incidencia"].default is False
 
 
+class TestAeatClientBreakdownXml:
+    """Tests for correct XML generation of breakdown details by operation type."""
+
+    @pytest.fixture
+    def client(self):
+        system = ComputerSystem(
+            vendor_name="Test Vendor",
+            vendor_nif="B12345678",
+            name="TestSys",
+            id="TS",
+            version="1.0",
+            installation_number="INST-001",
+            only_supports_verifactu=True,
+            supports_multiple_taxpayers=False,
+            has_multiple_taxpayers=False,
+        )
+        taxpayer = FiscalIdentifier(name="Company", nif="A98765432")
+        return AeatClient(system, taxpayer)
+
+    def _make_record(self, breakdown):
+        record = RegistrationRecord(
+            invoice_id=InvoiceIdentifier(
+                issuer_id="A98765432",
+                invoice_number="F-001",
+                issue_date=datetime(2025, 1, 1),
+            ),
+            issuer_name="Company",
+            invoice_type=InvoiceType.SIMPLIFICADA,
+            description="Test",
+            recipients=[],
+            breakdown=breakdown,
+            total_tax_amount="0.00",
+            total_amount="504.00",
+            hashed_at=datetime(2025, 1, 1, 10, 0, 0),
+            hash="",
+        )
+        record.hash = record.calculate_hash()
+        return record
+
+    def test_exempt_uses_operacion_exenta_element(self, client):
+        """Exempt operations must use <OperacionExenta> not <CalificacionOperacion>."""
+        record = self._make_record([
+            BreakdownDetails(
+                tax_type=TaxType.IVA,
+                regime_type=RegimeType.C01,
+                operation_type=OperationType.EXEMPT_BY_ARTICLE_20,
+                base_amount="504.00",
+            )
+        ])
+        xml = client._build_xml_request([record])
+
+        assert "<sum1:OperacionExenta>E1</sum1:OperacionExenta>" in xml
+        assert "CalificacionOperacion" not in xml
+
+    def test_exempt_omits_tipo_impositivo_and_cuota(self, client):
+        """Exempt operations must NOT emit TipoImpositivo or CuotaRepercutida."""
+        record = self._make_record([
+            BreakdownDetails(
+                tax_type=TaxType.IVA,
+                regime_type=RegimeType.C01,
+                operation_type=OperationType.EXEMPT_BY_OTHER,
+                base_amount="100.00",
+            )
+        ])
+        xml = client._build_xml_request([record])
+
+        assert "TipoImpositivo" not in xml
+        assert "CuotaRepercutida" not in xml
+
+    def test_exempt_with_empty_tax_amount_omits_cuota(self, client):
+        """tax_amount='' (lo que manda adp hoy) debe tratarse como no informado."""
+        record = self._make_record([
+            BreakdownDetails(
+                tax_type=TaxType.IVA,
+                regime_type=RegimeType.C01,
+                operation_type=OperationType.EXEMPT_BY_ARTICLE_20,
+                tax_rate="",
+                base_amount="504.00",
+                tax_amount="",
+            )
+        ])
+        xml = client._build_xml_request([record])
+
+        assert "<sum1:OperacionExenta>E1</sum1:OperacionExenta>" in xml
+        assert "TipoImpositivo" not in xml
+        assert "CuotaRepercutida" not in xml
+
+    def test_non_subject_uses_calificacion_operacion(self, client):
+        """Non-subject operations use <CalificacionOperacion> with N1/N2."""
+        record = self._make_record([
+            BreakdownDetails(
+                tax_type=TaxType.IVA,
+                regime_type=RegimeType.C01,
+                operation_type=OperationType.NON_SUBJECT,
+                base_amount="200.00",
+            )
+        ])
+        xml = client._build_xml_request([record])
+
+        assert "<sum1:CalificacionOperacion>N1</sum1:CalificacionOperacion>" in xml
+        assert "OperacionExenta" not in xml
+        assert "TipoImpositivo" not in xml
+        assert "CuotaRepercutida" not in xml
+
+    def test_subject_includes_tipo_impositivo_and_cuota(self, client):
+        """Subject operations include TipoImpositivo and CuotaRepercutida."""
+        record = RegistrationRecord(
+            invoice_id=InvoiceIdentifier(
+                issuer_id="A98765432",
+                invoice_number="F-001",
+                issue_date=datetime(2025, 1, 1),
+            ),
+            issuer_name="Company",
+            invoice_type=InvoiceType.SIMPLIFICADA,
+            description="Test",
+            recipients=[],
+            breakdown=[
+                BreakdownDetails(
+                    tax_type=TaxType.IVA,
+                    regime_type=RegimeType.C01,
+                    operation_type=OperationType.SUBJECT,
+                    tax_rate="21.00",
+                    base_amount="100.00",
+                    tax_amount="21.00",
+                )
+            ],
+            total_tax_amount="21.00",
+            total_amount="121.00",
+            hashed_at=datetime(2025, 1, 1, 10, 0, 0),
+            hash="",
+        )
+        record.hash = record.calculate_hash()
+        xml = client._build_xml_request([record])
+
+        assert "<sum1:CalificacionOperacion>S1</sum1:CalificacionOperacion>" in xml
+        assert "<sum1:TipoImpositivo>21.00</sum1:TipoImpositivo>" in xml
+        assert "<sum1:CuotaRepercutida>21.00</sum1:CuotaRepercutida>" in xml
+        assert "OperacionExenta" not in xml
+
+
 class TestAeatClientIncidenciaIntegration:
     """Integration tests for incidencia flag behavior."""
 

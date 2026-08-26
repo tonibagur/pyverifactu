@@ -65,7 +65,9 @@ class BreakdownDetails(Model):
     @classmethod
     def validate_tax_rate(cls, v: Optional[str]) -> Optional[str]:
         """Validate tax rate format"""
-        if v is not None and not re.match(r"^\d{1,3}\.\d{2}$", v):
+        if v is None or v == "":
+            return None
+        if not re.match(r"^\d{1,3}\.\d{2}$", v):
             raise ValueError("tax_rate must match format \\d{1,3}.\\d{2} (e.g., '21.00')")
         return v
 
@@ -73,7 +75,9 @@ class BreakdownDetails(Model):
     @classmethod
     def validate_tax_amount_format(cls, v: Optional[str]) -> Optional[str]:
         """Validate tax amount format"""
-        if v is not None and not re.match(r"^-?\d{1,12}\.\d{2}$", v):
+        if v is None or v == "":
+            return None
+        if not re.match(r"^-?\d{1,12}\.\d{2}$", v):
             raise ValueError(
                 "tax_amount must match format -?\\d{1,12}.\\d{2} (e.g., '21.00' or '-21.00')"
             )

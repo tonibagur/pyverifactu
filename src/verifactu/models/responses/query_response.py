@@ -282,6 +282,8 @@ class QueryResponse:
             tax_type_el = detail_element.find("tik:Impuesto", ns)
             regime_el = detail_element.find("tik:ClaveRegimen", ns)
             operation_el = detail_element.find("tik:CalificacionOperacion", ns)
+            if operation_el is None:
+                operation_el = detail_element.find("tik:OperacionExenta", ns)
             rate_el = detail_element.find("tik:TipoImpositivo", ns)
             base_el = detail_element.find("tik:BaseImponibleOimporteNoSujeto", ns)
             tax_el = detail_element.find("tik:CuotaRepercutida", ns)
