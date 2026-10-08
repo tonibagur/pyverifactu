@@ -446,17 +446,18 @@ class AeatClient:
         ).text = record.hash
 
         # Add correction fields if present
-        if record.previous_rejection:
+        # Cancellation records add these in their own position (see _export_cancellation_record)
+        if record.previous_rejection and isinstance(record, RegistrationRecord):
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}RechazoPrevio"
             ).text = record.previous_rejection
 
-        if record.correction:
+        if record.correction and isinstance(record, RegistrationRecord):
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}Subsanacion"
             ).text = record.correction
 
-        if record.external_reference:
+        if record.external_reference and isinstance(record, RegistrationRecord):
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}RefExterna"
             ).text = record.external_reference
@@ -553,17 +554,18 @@ class AeatClient:
         )
 
         # Add optional fields
-        if record.previous_rejection:
+        # Cancellation records add these in their own position (see _export_cancellation_record)
+        if record.previous_rejection and isinstance(record, RegistrationRecord):
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}RechazoPrevio"
             ).text = record.previous_rejection
 
-        if record.correction:
+        if record.correction and isinstance(record, RegistrationRecord):
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}Subsanacion"
             ).text = record.correction
 
-        if record.external_reference:
+        if record.external_reference and isinstance(record, RegistrationRecord):
             ET.SubElement(
                 record_element, f"{{{self.NS_SUM1}}}RefExterna"
             ).text = record.external_reference
@@ -665,18 +667,33 @@ class AeatClient:
         self, record_element: ET.Element, record: CancellationRecord
     ) -> None:
         """Export cancellation record specific fields"""
-        # Add invoice ID
-        self._add_invoice_id(record_element, record.invoice_id)
-
-        # Add issuer name
+        # Add invoice ID (cancellation records use the "Anulada" element names)
+        id_factura = ET.SubElement(record_element, f"{{{self.NS_SUM1}}}IDFactura")
         ET.SubElement(
-            record_element, f"{{{self.NS_SUM1}}}NombreRazonEmisor"
-        ).text = record.issuer_name
-
-        # Add cancellation type
+            id_factura, f"{{{self.NS_SUM1}}}IDEmisorFacturaAnulada"
+        ).text = record.invoice_id.issuer_id
         ET.SubElement(
-            record_element, f"{{{self.NS_SUM1}}}TipoFactura"
-        ).text = record.cancellation_type.value
+            id_factura, f"{{{self.NS_SUM1}}}NumSerieFacturaAnulada"
+        ).text = record.invoice_id.invoice_number
+        ET.SubElement(
+            id_factura, f"{{{self.NS_SUM1}}}FechaExpedicionFacturaAnulada"
+        ).text = record.invoice_id.issue_date.strftime("%d-%m-%Y")
+
+        # Optional fields, in XSD order (before Encadenamiento)
+        if record.external_reference:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}RefExterna"
+            ).text = record.external_reference
+
+        if record.without_prior_record:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}SinRegistroPrevio"
+            ).text = "S"
+
+        if record.previous_rejection:
+            ET.SubElement(
+                record_element, f"{{{self.NS_SUM1}}}RechazoPrevio"
+            ).text = record.previous_rejection
 
     def _add_invoice_id(
         self, parent: ET.Element, invoice_id
