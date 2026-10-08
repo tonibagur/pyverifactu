@@ -38,7 +38,7 @@ from .models.responses import (
     QueryResultType,
 )
 from .models.queries import QueryPeriod, QueryFilter
-from .services import AeatClient
+from .services import AeatClient, QrGenerator
 from .exceptions import AeatException, InvalidModelException
 
 # Rebuild models for Python 3.8 compatibility with Pydantic v2
@@ -77,6 +77,7 @@ __all__ = [
     "QueryBreakdownItem",
     # Services
     "AeatClient",
+    "QrGenerator",
     # Models
     "InvoiceIdentifier",
     "FiscalIdentifier",

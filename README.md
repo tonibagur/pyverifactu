@@ -120,6 +120,26 @@ record = RegistrationRecord(
 > Nota: el soporte para identificar al tercero expedidor (elemento
 > `Tercero` del XSD) aún no está implementado (no se usa ni soporta de momento)
 
+### QR codes
+
+`QrGenerator` builds the AEAT validation URL that must be printed as a QR code on the invoice.
+By default it uses the production environment in online mode (VERI*FACTU).
+
+```python
+from verifactu import QrGenerator
+
+qr = QrGenerator()
+url = qr.from_registration_record(record)
+# https://www2.agenciatributaria.gob.es/wlpl/TIKE-CONT/ValidarQR?nif=A12345678&numserie=FACT-2025-001&fecha=01-01-2025&importe=12.10
+
+# Testing environment and offline mode (No VERI*FACTU)
+url = QrGenerator().set_production(False).set_online_mode(False).from_registration_record(record)
+```
+
+The URL can also be built from an `InvoiceIdentifier` and the total amount (`from_invoice_id`)
+or from the raw values (`from_raw`). Rendering the QR image is left to the caller
+(for example, with the `qrcode` package).
+
 ## Testing
 
 Run tests with pytest:
