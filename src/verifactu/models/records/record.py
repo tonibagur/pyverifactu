@@ -4,12 +4,22 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, Optional
 import re
 from pydantic import Field, field_validator, model_validator
 
 from verifactu.models.model import Model
+from verifactu.exceptions.import_exception import ImportException
 from verifactu.models.records.invoice_identifier import InvoiceIdentifier
+from verifactu.models.xml_utils import (
+    NS_SUM1,
+    XmlInput,
+    build,
+    get,
+    get_text,
+    require_text,
+    to_element,
+)
 
 if TYPE_CHECKING:
     from verifactu.models.computer_system import ComputerSystem
@@ -136,6 +146,84 @@ class Record(Model, ABC):
             )
 
         return self
+
+    @classmethod
+    def from_xml(cls, xml: XmlInput) -> "Record":
+        """
+        Import instance from XML element
+
+        The element must be a ``sum1:RegistroAlta`` or ``sum1:RegistroAnulacion`` node, as
+        exported to (or stored for) the AEAT. The returned instance is a
+        :class:`RegistrationRecord` or a :class:`CancellationRecord` accordingly.
+
+        Args:
+            xml: XML element (or string) of the record
+
+        Returns:
+            Record instance
+
+        Raises:
+            ImportException: If failed to parse XML
+            InvalidModelException: If the imported values do not pass validation
+        """
+        from verifactu.models.records.cancellation_record import CancellationRecord
+        from verifactu.models.records.registration_record import RegistrationRecord
+
+        element = to_element(xml)
+        prefix = f"{{{NS_SUM1}}}"
+        if not element.tag.startswith(prefix):
+            raise ImportException('Node namespace must be "sum1"')
+        node_name = element.tag[len(prefix) :]
+
+        record_classes = {"RegistroAlta": RegistrationRecord, "RegistroAnulacion": CancellationRecord}
+        record_class = record_classes.get(node_name)
+        if record_class is None or not issubclass(record_class, cls):
+            raise ImportException("Unexpected node type")
+
+        data = record_class._import_custom_properties(element)
+
+        # Previous invoice and hash
+        registro_anterior_element = get(element, "sum1:Encadenamiento/sum1:RegistroAnterior")
+        if registro_anterior_element is not None:
+            data["previous_invoice_id"] = InvoiceIdentifier.from_xml(registro_anterior_element)
+            data["previous_hash"] = require_text(
+                registro_anterior_element, "sum1:Huella", "RegistroAnterior"
+            )
+
+        # Hashed at
+        raw_hashed_at = require_text(element, "sum1:FechaHoraHusoGenRegistro")
+        try:
+            data["hashed_at"] = datetime.fromisoformat(raw_hashed_at)
+        except ValueError as e:
+            raise ImportException(
+                "Invalid value for <sum1:FechaHoraHusoGenRegistro /> element"
+            ) from e
+
+        # Hash
+        data["hash"] = require_text(element, "sum1:Huella")
+
+        # Optional flags
+        data["previous_rejection"] = get_text(element, "sum1:RechazoPrevio")
+        data["correction"] = get_text(element, "sum1:Subsanacion")
+        data["external_reference"] = get_text(element, "sum1:RefExterna")
+
+        return build(record_class, **data)
+
+    @classmethod
+    @abstractmethod
+    def _import_custom_properties(cls, record_element: Any) -> Dict[str, Any]:
+        """
+        Import custom record properties from XML
+
+        Args:
+            record_element: XML record element
+
+        Returns:
+            Constructor arguments of the record class
+
+        Raises:
+            ImportException: If failed to parse XML
+        """
 
     @abstractmethod
     def calculate_hash(self) -> str:

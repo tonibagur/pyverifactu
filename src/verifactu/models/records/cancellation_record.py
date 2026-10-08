@@ -5,7 +5,12 @@ from __future__ import annotations
 import hashlib
 from pydantic import Field, model_validator
 
+from typing import Any, Dict
+
+from verifactu.models.records.invoice_identifier import InvoiceIdentifier
 from verifactu.models.records.record import Record
+from verifactu.models.xml_utils import get, get_text
+from verifactu.exceptions.import_exception import ImportException
 
 
 class CancellationRecord(Record):
@@ -83,6 +88,17 @@ class CancellationRecord(Record):
             f"&FechaHoraHusoGenRegistro={dt_str}"
         )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest().upper()
+
+    @classmethod
+    def _import_custom_properties(cls, record_element: Any) -> Dict[str, Any]:
+        """Import custom record properties from XML"""
+        id_factura_element = get(record_element, "sum1:IDFactura")
+        if id_factura_element is None:
+            raise ImportException("Missing <sum1:IDFactura /> element")
+        return {
+            "invoice_id": InvoiceIdentifier.from_xml(id_factura_element),
+            "without_prior_record": get_text(record_element, "sum1:SinRegistroPrevio") == "S",
+        }
 
     def get_record_element_name(self) -> str:
         """Get record element name for XML export"""

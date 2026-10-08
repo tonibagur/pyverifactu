@@ -100,6 +100,31 @@ print(f"Status: {response.status}")
 print(f"CSV: {response.csv}")
 ```
 
+### Importing records from XML
+
+Records previously generated (for example, stored copies of `sum1:RegistroAlta` or
+`sum1:RegistroAnulacion` elements) can be loaded back with `Record.from_xml`, which returns a
+`RegistrationRecord` or a `CancellationRecord` depending on the element. It accepts an XML string,
+bytes or an already parsed `xml.etree.ElementTree.Element`.
+
+```python
+from verifactu import ComputerSystem, Record, RegistrationRecord
+
+record = Record.from_xml(xml_string)
+if isinstance(record, RegistrationRecord):
+    print(record.invoice_id.invoice_number, record.total_amount)
+
+# The chain can be checked against the stored hash
+assert record.hash == record.calculate_hash()
+
+# The computer system block can be imported too
+system = ComputerSystem.from_xml(system_xml_string)
+```
+
+`InvoiceIdentifier.from_xml` and `BreakdownDetails.from_xml` are also available.
+Malformed XML or missing/invalid elements raise `ImportException`; values that do not pass the
+model validation (for example, a hash that does not match the record) raise `InvalidModelException`.
+
 ### Autofacturas (self-billing)
 
 Para indicar que una factura ha sido expedida materialmente por un tercero

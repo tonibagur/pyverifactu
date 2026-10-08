@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Optional
 from pydantic import Field, field_validator
 from verifactu.models.model import Model
+from verifactu.exceptions.import_exception import ImportException
+from verifactu.models.xml_utils import XmlInput, build, get_text, parse_date, to_element
 
 
 class InvoiceIdentifier(Model):
@@ -85,3 +87,42 @@ class InvoiceIdentifier(Model):
             and self.invoice_number == other.invoice_number
             and self.issue_date.date() == other.issue_date.date()
         )
+
+    @classmethod
+    def from_xml(cls, xml: XmlInput) -> "InvoiceIdentifier":
+        """
+        Import instance from XML element
+
+        Accepts both regular (``IDEmisorFactura``...) and cancellation
+        (``IDEmisorFacturaAnulada``...) element names.
+
+        Args:
+            xml: XML element (or string) containing the identifier fields
+
+        Returns:
+            Invoice identifier
+
+        Raises:
+            ImportException: If failed to parse XML
+        """
+        element = to_element(xml)
+        issuer_id = get_text(element, "sum1:IDEmisorFactura")
+        if issuer_id is None:
+            issuer_id = get_text(element, "sum1:IDEmisorFacturaAnulada")
+        if issuer_id is None:
+            raise ImportException("Missing <sum1:IDEmisorFactura /> element")
+
+        invoice_number = get_text(element, "sum1:NumSerieFactura")
+        if invoice_number is None:
+            invoice_number = get_text(element, "sum1:NumSerieFacturaAnulada")
+        if invoice_number is None:
+            raise ImportException("Missing <sum1:NumSerieFactura /> element")
+
+        raw_issue_date = get_text(element, "sum1:FechaExpedicionFactura")
+        if raw_issue_date is None:
+            raw_issue_date = get_text(element, "sum1:FechaExpedicionFacturaAnulada")
+        if raw_issue_date is None:
+            raise ImportException("Missing <sum1:FechaExpedicionFactura /> element")
+        issue_date = parse_date(raw_issue_date, "FechaExpedicionFactura")
+
+        return build(cls, issuer_id=issuer_id, invoice_number=invoice_number, issue_date=issue_date)

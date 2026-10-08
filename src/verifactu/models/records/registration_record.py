@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 from pydantic import Field, field_validator, model_validator
 
 from verifactu.models.records.record import Record
@@ -15,6 +15,9 @@ from verifactu.models.records.fiscal_identifier import FiscalIdentifier
 from verifactu.models.records.foreign_fiscal_identifier import ForeignFiscalIdentifier
 from verifactu.models.records.third_or_recipient_type import ThirdOrRecipientType
 from verifactu.models.records.breakdown_details import BreakdownDetails
+from verifactu.models.records.foreign_id_type import ForeignIdType
+from verifactu.exceptions.import_exception import ImportException
+from verifactu.models.xml_utils import get, get_all, get_text, require_text, to_enum
 
 
 class RegistrationRecord(Record):
@@ -270,6 +273,95 @@ class RegistrationRecord(Record):
             f"&FechaHoraHusoGenRegistro={dt_str}"
         )
         return hashlib.sha256(payload.encode("utf-8")).hexdigest().upper()
+
+    @classmethod
+    def _import_custom_properties(cls, record_element: Any) -> Dict[str, Any]:
+        """Import custom record properties from XML"""
+        data: Dict[str, Any] = {}
+
+        # Invoice ID
+        id_factura_element = get(record_element, "sum1:IDFactura")
+        if id_factura_element is None:
+            raise ImportException("Missing <sum1:IDFactura /> element")
+        data["invoice_id"] = InvoiceIdentifier.from_xml(id_factura_element)
+
+        # Issuer name
+        data["issuer_name"] = require_text(record_element, "sum1:NombreRazonEmisor")
+
+        # Flags
+        data["is_correction"] = get_text(record_element, "sum1:Subsanacion") == "S"
+        raw_issued_by = get_text(record_element, "sum1:EmitidaPorTerceroODestinatario")
+        if raw_issued_by is not None:
+            data["issued_by_third_or_recipient"] = to_enum(
+                ThirdOrRecipientType, raw_issued_by, "EmitidaPorTerceroODestinatario"
+            )
+
+        # Invoice type
+        data["invoice_type"] = to_enum(
+            InvoiceType, require_text(record_element, "sum1:TipoFactura"), "TipoFactura"
+        )
+
+        # Corrective details
+        raw_corrective_type = get_text(record_element, "sum1:TipoRectificativa")
+        if raw_corrective_type is not None:
+            data["corrective_type"] = to_enum(
+                CorrectiveType, raw_corrective_type, "TipoRectificativa"
+            )
+        data["corrected_invoices"] = [
+            InvoiceIdentifier.from_xml(element)
+            for element in get_all(
+                record_element, "sum1:FacturasRectificadas/sum1:IDFacturaRectificada"
+            )
+        ]
+        data["replaced_invoices"] = [
+            InvoiceIdentifier.from_xml(element)
+            for element in get_all(
+                record_element, "sum1:FacturasSustituidas/sum1:IDFacturaSustituida"
+            )
+        ]
+        data["corrected_base_amount"] = get_text(
+            record_element, "sum1:ImporteRectificacion/sum1:BaseRectificada"
+        )
+        data["corrected_tax_amount"] = get_text(
+            record_element, "sum1:ImporteRectificacion/sum1:CuotaRectificada"
+        )
+
+        # Description
+        data["description"] = require_text(record_element, "sum1:DescripcionOperacion")
+
+        # Recipients
+        recipients: List[Union[FiscalIdentifier, ForeignFiscalIdentifier]] = []
+        for element in get_all(record_element, "sum1:Destinatarios/sum1:IDDestinatario"):
+            name = require_text(element, "sum1:NombreRazon", "IDDestinatario")
+            nif = get_text(element, "sum1:NIF")
+            if nif is not None:
+                recipients.append(FiscalIdentifier(name, nif))
+                continue
+            recipients.append(
+                ForeignFiscalIdentifier(
+                    name=name,
+                    country=require_text(element, "sum1:IDOtro/sum1:CodigoPais", "IDDestinatario"),
+                    type=to_enum(
+                        ForeignIdType,
+                        require_text(element, "sum1:IDOtro/sum1:IDType", "IDDestinatario"),
+                        "IDType",
+                    ),
+                    value=require_text(element, "sum1:IDOtro/sum1:ID", "IDDestinatario"),
+                )
+            )
+        data["recipients"] = recipients
+
+        # Breakdown
+        data["breakdown"] = [
+            BreakdownDetails.from_xml(element)
+            for element in get_all(record_element, "sum1:Desglose/sum1:DetalleDesglose")
+        ]
+
+        # Totals
+        data["total_tax_amount"] = require_text(record_element, "sum1:CuotaTotal")
+        data["total_amount"] = require_text(record_element, "sum1:ImporteTotal")
+
+        return data
 
     def get_record_element_name(self) -> str:
         """Get record element name for XML export"""

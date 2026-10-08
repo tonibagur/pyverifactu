@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pydantic import Field, field_validator
 from verifactu.models.model import Model
+from verifactu.models.xml_utils import XmlInput, build, require_text, to_element
 
 
 class ComputerSystem(Model):
@@ -87,3 +88,32 @@ class ComputerSystem(Model):
         if not v or not v.strip():
             raise ValueError("id cannot be blank")
         return v
+
+    @classmethod
+    def from_xml(cls, xml: XmlInput) -> "ComputerSystem":
+        """
+        Import instance from XML element
+
+        Args:
+            xml: ``SistemaInformatico`` XML element (or string)
+
+        Returns:
+            Computer system
+
+        Raises:
+            ImportException: If failed to parse XML
+        """
+        element = to_element(xml)
+        return build(
+            cls,
+            vendor_name=require_text(element, "sum1:NombreRazon"),
+            vendor_nif=require_text(element, "sum1:NIF"),
+            name=require_text(element, "sum1:NombreSistemaInformatico"),
+            id=require_text(element, "sum1:IdSistemaInformatico"),
+            version=require_text(element, "sum1:Version"),
+            installation_number=require_text(element, "sum1:NumeroInstalacion"),
+            only_supports_verifactu=require_text(element, "sum1:TipoUsoPosibleSoloVerifactu")
+            == "S",
+            supports_multiple_taxpayers=require_text(element, "sum1:TipoUsoPosibleMultiOT") == "S",
+            has_multiple_taxpayers=require_text(element, "sum1:IndicadorMultiplesOT") == "S",
+        )

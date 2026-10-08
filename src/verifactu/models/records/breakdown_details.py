@@ -9,6 +9,8 @@ from verifactu.models.model import Model
 from verifactu.models.records.tax_type import TaxType
 from verifactu.models.records.regime_type import RegimeType
 from verifactu.models.records.operation_type import OperationType
+from verifactu.exceptions.import_exception import ImportException
+from verifactu.models.xml_utils import XmlInput, build, get_text, require_text, to_element, to_enum
 
 
 class BreakdownDetails(Model):
@@ -120,3 +122,40 @@ class BreakdownDetails(Model):
             )
 
         return self
+
+    @classmethod
+    def from_xml(cls, xml: XmlInput) -> "BreakdownDetails":
+        """
+        Import instance from XML element
+
+        Args:
+            xml: ``DetalleDesglose`` XML element (or string)
+
+        Returns:
+            Breakdown details
+
+        Raises:
+            ImportException: If failed to parse XML
+        """
+        element = to_element(xml)
+        tax_type = to_enum(TaxType, require_text(element, "sum1:Impuesto"), "Impuesto")
+        regime_type = to_enum(
+            RegimeType, require_text(element, "sum1:ClaveRegimen"), "ClaveRegimen"
+        )
+
+        raw_operation_type = get_text(element, "sum1:CalificacionOperacion")
+        if raw_operation_type is None:
+            raw_operation_type = get_text(element, "sum1:OperacionExenta")
+        if raw_operation_type is None:
+            raise ImportException("Missing <sum1:CalificacionOperacion /> element")
+        operation_type = to_enum(OperationType, raw_operation_type, "CalificacionOperacion")
+
+        return build(
+            cls,
+            tax_type=tax_type,
+            regime_type=regime_type,
+            operation_type=operation_type,
+            base_amount=require_text(element, "sum1:BaseImponibleOimporteNoSujeto"),
+            tax_rate=get_text(element, "sum1:TipoImpositivo"),
+            tax_amount=get_text(element, "sum1:CuotaRepercutida"),
+        )

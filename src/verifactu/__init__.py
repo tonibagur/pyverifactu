@@ -7,6 +7,7 @@ using the VERI*FACTU system.
 
 __version__ = "1.0.0"
 
+from .exceptions.import_exception import ImportException
 from .models import Model, ComputerSystem
 from .models.records import (
     InvoiceType,
@@ -88,5 +89,6 @@ __all__ = [
     "CancellationRecord",
     # Exceptions
     "AeatException",
+    "ImportException",
     "InvalidModelException",
 ]
